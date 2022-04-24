@@ -1,0 +1,318 @@
+---
+title: "Modeling"
+author: "Emma Spors"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+library(readr)
+library(tidyverse)
+library(glmnet)
+library(caret)
+library(MASS)
+library(car)
+
+BEI_Data <- read_csv("BEI_Data.csv")
+```
+
+
+## Full Model 
+```{r}
+full_model <- lm(
+  cancer_mortality ~ cancer_incidence + 
+    obese + 
+    drinking + 
+    smoking + 
+    educational_attainment + 
+    poverty + 
+    uninsured + 
+    food_index, 
+  data = BEI_Data
+)
+summary(full_model)
+```
+
+### Diagnostic plots + VIF 
+
+```{r}
+plot(full_model, which = c(1,2))
+
+pdf("Graphs/residuals/fullmodel_rf.pdf")
+plot(full_model, which = c(1))
+dev.off()
+
+pdf("Graphs/residuals/fullmodel_qq.pdf")
+plot(full_model, which = c(2))
+dev.off()
+
+
+vif(full_model)
+mean_vif <- sum(vif(full_model))/length(vif(full_model)) 
+mean_vif
+```
+
+### Full Model without Smoking 
+
+```{r}
+full_model <- lm(
+  cancer_mortality ~ cancer_incidence + 
+    obese + 
+    drinking + 
+    educational_attainment + 
+    poverty + 
+    uninsured + 
+    food_index, 
+  data = BEI_Data
+)
+summary(full_model)
+```
+
+### Diagnostic plots + VIF
+
+```{r}
+plot(full_model)
+
+pdf("Graphs/residuals/fullmodel_nosmoking_rf.pdf")
+plot(full_model, which = c(1))
+dev.off()
+
+pdf("Graphs/residuals/fullmodel_nosmoking_qq.pdf")
+plot(full_model, which = c(2))
+dev.off()
+
+
+vif(full_model)
+max(vif(full_model))
+mean_vif <- sum(vif(full_model))/length(vif(full_model)) 
+mean_vif
+```
+
+## Box Cox Investigation 
+
+```{r}
+bc <- boxcox(
+  object = full_model, 
+  lambda = seq(-1,1.5,0.1)
+)
+lambda <- bc$x[which(bc$y == max(bc$y))]
+lambda
+```
+
+
+
+```{r}
+#dependent variable 
+Y <- (data.matrix(BEI_Data[ ,4]))
+
+#scaled independent variables 
+X <- scale(data.matrix(BEI_Data[ ,c(3,5:7,9:11)])) 
+```
+
+## Ridge Regression 
+```{r}
+ridge <- glmnet(
+  X, 
+  Y, 
+  alpha = 0
+)
+
+plot(ridge, xvar = "lambda")
+
+ridge.cv <- cv.glmnet(
+  X, 
+  Y, 
+  alpha = 0
+)
+
+plot(ridge.cv)
+
+ridge.cv$lambda.min
+
+ridge_model <- glmnet(
+  X, 
+  Y, 
+  alpha = 0, 
+  lambda = ridge.cv$lambda.min
+)
+coef(ridge_model)
+```
+
+
+## LASSO Regression 
+```{r}
+set.seed(14)
+#create lasso model with selected lambda 
+lasso <- glmnet(
+  X, 
+  Y, 
+  alpha = 1
+)
+
+plot(lasso, xvar = "lambda")
+
+
+lasso.cv <- cv.glmnet(
+  X, 
+  Y, 
+  alpha = 1
+)
+
+plot(lasso.cv)
+
+lasso.cv$lambda.min
+
+lasso_model <- glmnet(
+  X, 
+  Y, 
+  alpha = 1, 
+  lambda = lasso.cv$lambda.min
+)
+coef(lasso_model)
+```
+
+## Elastic net model 
+
+
+```{r}
+fold_id <- sample(1:10, size = length(Y), replace = TRUE)
+
+tuning_grid <- tibble::tibble(
+  alpha      = seq(0, 1, by = .1),
+  mse_min    = NA,
+  mse_1se    = NA,
+  lambda_min = NA,
+  lambda_1se = NA
+)
+
+for(i in seq_along(tuning_grid$alpha)) {
+  
+  # fit CV model for each alpha value
+  fit <- cv.glmnet(X, Y, alpha = tuning_grid$alpha[i], foldid = fold_id)
+  
+  # extract MSE and lambda values
+  tuning_grid$mse_min[i]    <- fit$cvm[fit$lambda == fit$lambda.min]
+  tuning_grid$mse_1se[i]    <- fit$cvm[fit$lambda == fit$lambda.1se]
+  tuning_grid$lambda_min[i] <- fit$lambda.min
+  tuning_grid$lambda_1se[i] <- fit$lambda.1se
+}
+
+tuning_grid
+```
+
+```{r}
+#tuning_grid %>%
+#  mutate(se = mse_1se - mse_min) %>%
+#  ggplot(aes(alpha, mse_min)) +
+#  geom_line(size = 2) +
+#  geom_ribbon(aes(ymax = mse_min + se, ymin = mse_min - se), alpha = .25) +
+#  ggtitle("MSE ± one standard error")
+
+alpha_best <- tuning_grid[10,1]
+lambda_best <- tuning_grid[10, 4]
+
+elastic_model <- glmnet(
+  X, 
+  Y, 
+  alpha = as.numeric(alpha_best),
+  lambda = as.numeric(lambda_best),
+  family = "gaussian"
+)
+elastic_model$beta
+```
+
+## Reduced OLS Model 
+
+```{r}
+reduced_model <- lm(
+  cancer_mortality ~ 
+    cancer_incidence + 
+    food_index + 
+    educational_attainment + 
+    poverty,
+  data = BEI_Data
+)
+summary(reduced_model)
+```
+
+```{r}
+plot(reduced_model)
+
+pdf("Graphs/residuals/regularized_rf.pdf")
+plot(reduced_model, which = c(1))
+dev.off()
+
+pdf("Graphs/residuals/regularized_qq.pdf")
+plot(reduced_model, which = c(2))
+dev.off()
+
+vif(reduced_model)
+max(vif(reduced_model))
+mean_vif <- sum(vif(reduced_model))/length(vif(reduced_model)) 
+mean_vif
+```
+
+## Reduced OLS Model without Food 
+
+```{r}
+reduced2_model <-  lm(
+  cancer_mortality ~ 
+    cancer_incidence + 
+    educational_attainment + 
+    poverty,
+  data = BEI_Data
+)
+summary(reduced2_model)
+```
+
+```{r}
+pdf("Graphs/residuals/regularized_wofood_rf.pdf")
+plot(reduced2_model, which = c(1))
+dev.off()
+
+pdf("Graphs/residuals/regularized_wofood_qq.pdf")
+plot(reduced2_model, which = c(2))
+dev.off()
+
+vif(reduced2_model)
+max(vif(reduced2_model))
+mean_vif <- sum(vif(reduced2_model))/length(vif(reduced2_model)) 
+mean_vif
+
+```
+
+
+## STEPWISE Regression 
+
+```{r}
+library(MASS)
+```
+
+```{r}
+stepwise_model <- MASS::stepAIC(full_model, direction = "both", trace = FALSE)
+summary(stepwise_model)
+```
+
+
+```{r}
+pdf("Graphs/residuals/stepwise_rf.pdf")
+plot(stepwise_model, which = c(1))
+dev.off()
+
+pdf("Graphs/residuals/stepwise_qq.pdf")
+plot(stepwise_model, which = c(2))
+dev.off()
+
+vif(stepwise_model)
+max(vif(stepwise_model))
+mean_vif <- sum(vif(stepwise_model))/length(vif(stepwise_model)) 
+mean_vif
+
+```
+
+

@@ -1,0 +1,401 @@
+---
+title: "Exploratory Data Analysis"
+author: "Emma Spors"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import Data Set 
+
+```{r}
+library(readr)
+library(ggplot2)
+library(tidyverse)
+bc_data <- read_csv("BEI_Data.csv")
+```
+
+
+# Set colors 
+```{r}
+col1 <- "#274472"
+col2 <- "#771a04"
+col_list2 <- c("#274472", "#CC5500")
+```
+
+
+## Five number summary  
+```{r}
+summary(bc_data)
+```
+
+# Histograms 
+```{r}
+g <- ggplot(bc_data) + 
+  theme_minimal() 
+
+hist_cancer_incidence <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = cancer_incidence), bins = 15) + 
+  labs(x = "Cancer incidence per 100,000", 
+       y = "Frequency")
+
+hist_cancer_mortality <- g + 
+  geom_histogram(color = "white", fill = col2, aes(x = cancer_mortality), bins = 15) + 
+  labs(x = "Cancer mortality per 100,000", 
+       y = "Frequency")
+
+hist_uninsured <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = uninsured), bins = 15) + 
+  labs(x = "Uninsured percentage", 
+       y = "Frequency")  
+
+hist_obese <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = obese), bins = 15) + 
+  labs(x = "Obesity percentage", 
+       y = "Frequency")
+
+hist_drinking <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = drinking), bins = 15) + 
+  labs(x = "Excessive drinking percentage", 
+       y = "Frequency") 
+
+hist_smoking <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = log(smoking)), bins = 15) + 
+  labs(x = "Smoking percentage", 
+       y = "Frequency")
+
+hist_food <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = food_index), bins = 15) + 
+  labs(x = "Food index", 
+       y = "Frequency") 
+
+hist_education <- g + 
+  geom_histogram(color = "white", fill = col1, aes(x = educational_attainment), bins = 15) + 
+  labs(x = "Educational attainment percentage", 
+       y = "Frequency")
+
+hist_poverty <- g + 
+  geom_histogram(color = "white", fill  = col1, aes(x = poverty), bins = 15) + 
+  labs(x = "Poverty", 
+       y = "Frequency")
+  
+```
+
+## Print graphs 
+```{r}
+hist_cancer_incidence
+hist_cancer_mortality
+hist_uninsured
+hist_obese
+hist_drinking
+hist_smoking
+hist_food
+hist_education
+hist_poverty
+```
+
+# Save histograms 
+```{r}
+h <- 3.25 
+w <- 6
+ggsave(
+  plot = hist_cancer_incidence,
+  filename = "Graphs/hist_cancer_inc.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_cancer_mortality,
+  filename = "Graphs/hist_cancer_mort.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_uninsured,
+  filename = "Graphs/hist_uninsured.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_obese,
+  filename = "Graphs/hist_obese.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_drinking,
+  filename = "Graphs/hist_drinking.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_smoking,
+  filename = "Graphs/hist_smoking.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_food,
+  filename = "Graphs/hist_food.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_education, 
+  filename = "Graphs/hist_education.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = hist_poverty,
+  filename = "Graphs/hist_poverty.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+```
+
+
+## Create maps 
+
+```{r}
+library(plotly)
+library(ggmap)
+library(mapdata)
+```
+
+```{r}
+map_dat <- bc_data
+map_dat$county <- tolower(map_dat$county)
+colnames(map_dat)[colnames(map_dat) == "county"] <- "subregion"
+
+
+county <- map_data("county") %>%
+  filter(region == "south dakota")
+county$subregion <- replace(
+  county$subregion, 
+  county$subregion == 'oglala dakota', 
+  'oglala lakota'
+)
+
+counties_data <- inner_join(county, map_dat, by = "subregion")
+```
+
+```{r}
+map_base <- ggplot(data = county, mapping = aes(x = long, y = lat, group = group)) + 
+  coord_fixed(1.3) + 
+  geom_polygon(color = "black", fill = "grey") + 
+  scale_fill_gradient(low = "white", high = col1) + 
+  theme_minimal() + 
+  theme(axis.line=element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      panel.background=element_blank(),
+      panel.border=element_blank(),
+      panel.grid.major=element_blank(),
+      panel.grid.minor=element_blank(),
+      plot.background=element_blank())
+```
+
+
+```{r}
+map_cancer_incidence <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = cancer_incidence), color = "black") + 
+  labs(fill = "Rate per\n100,000")
+
+map_cancer_mortality <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = cancer_mortality), color = "black") + 
+  scale_fill_gradient(low = "white", high = col2) + 
+  labs(fill = "Rate per\n100,000")
+
+map_uninsured <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = uninsured), color = "black") + 
+  labs(fill = "Percentage")
+
+map_obese <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = obese), color = "black") + 
+  labs(fill = "Percentage") 
+
+map_drinking <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = drinking), color = "black") + 
+  labs(fill = "Percentage") 
+
+map_smoking <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = smoking), color = "black") + 
+  labs(fill = "Percentage")
+
+map_food <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = food_index), color = "black") + 
+  labs(fill = "Scale")
+
+map_education <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = educational_attainment), color = "black") + 
+  labs(fill = "Percentage") 
+
+map_poverty <- map_base + 
+  geom_polygon(data = counties_data, aes(fill = poverty), color = "black") + 
+  labs(fill = "Percentage")
+```
+
+
+```{r}
+map_cancer_incidence
+map_cancer_mortality
+map_uninsured
+map_obese
+map_drinking
+map_smoking
+map_food
+map_education
+map_poverty
+```
+
+
+```{r}
+h <- 3.25 
+w <- 6
+ggsave(
+  plot = map_cancer_incidence,
+  filename = "Graphs/map_cancer_inc.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_cancer_mortality,
+  filename = "Graphs/map_cancer_mort.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_uninsured,
+  filename = "Graphs/map_uninsured.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_obese,
+  filename = "Graphs/map_obese.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_drinking,
+  filename = "Graphs/map_drinking.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_smoking,
+  filename = "Graphs/map_smoking.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_food,
+  filename = "Graphs/map_food.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_education, 
+  filename = "Graphs/map_education.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+
+ggsave(
+  plot = map_poverty,
+  filename = "Graphs/map_poverty.pdf", 
+  height = h, 
+  width = w, 
+  units = "in", 
+  dpi = 1000
+)
+```
+
+```{r}
+library(ggcorrplot)
+factors <- bc_data[,c(3,5:11)]
+colnames(factors) <- c("Cancer incidence","Uninsured", "Obesity", "Excessive drinking", 
+                       "Smoking", "Food index", "Educational attainment", 
+                       "Poverty")
+corr <- round(cor(factors),1)
+p_mat <- ggcorrplot::cor_pmat(factors)
+cor_plot <- ggcorrplot(corr, hc.order = TRUE, 
+           lab = TRUE, insig = "blank", 
+           p.mat = p_mat, type = "upper", 
+           colors = c(col2, "white", col1))  +
+  theme(axis.text.x = element_text(color = "black"), 
+        axis.text.y = element_text(color = "black"))
+cor_plot
+
+ggsave(
+  plot = cor_plot, 
+  file = "Graphs/cor_plot.pdf", 
+  height = 5, 
+  width = 7, 
+  units = "in"
+)
+```
+
+

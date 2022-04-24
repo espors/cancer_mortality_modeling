@@ -1,0 +1,142 @@
+---
+title: "Moran"
+author: "Benjamin Pond"
+date: "April 13, 2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## Read in the cancer data from files
+library(readxl)
+response <- read_excel("C:/Users/Benjamin Pond/Desktop/Regression/MoransIdata.xlsx")
+
+yi <- response$cancer_mortality   # response variable
+ybar <- mean(yi)                  # mean of response
+
+
+## Read in Weight Matrix from files
+MIdata <- read_excel("C:/Users/Benjamin Pond/Desktop/Regression/MoransIdata.xlsx", 
+    sheet = "Moran")
+
+W <- MIdata[,2:67]        # excludes county names as variables
+#str(W)
+n <- length(W[1,])        # n is number of data points; for SD counties, 66
+
+
+## Moran's I function definition
+Global.Moran.I <- function(yi, weight.matrix){
+      w = weight.matrix
+	num1 = length(yi)
+	den1 = sum(w)
+	num2=0
+	for(i in 1:length(yi)){
+		for(j in 1:length(yi)){		
+			num2 = num2 + w[i,j]*(yi[i]-ybar)*(yi[j]-ybar)
+		}
+	}
+	den2 = sum((yi-ybar)^2)
+	MoranI = (num1/den1)*(num2/den2)
+	MoranI
+}
+
+
+## call function using response and Weight Matrix
+MC <- Global.Moran.I(yi,W)
+paste('Global Morans I is', round(MC, 5))
+
+```
+
+Now need too compute Variance for Z-score
+
+$$ S1 = \frac{1}{2}\sum^N_{i=1}\sum^N_{j=1}(w_{ij}+w_{ji})^2$$
+
+```{r}
+## Compute variance
+## Calclulate S1
+s1 <- 0
+for (i in 1:n){
+  for (j in 1:n){
+    s1 <- s1 + (W[i,j] + W[j,i])^2
+  }
+}
+s1 <- 0.5*s1
+```
+
+
+$$ S2 = \sum^N_{i=1}\left(\sum^N_{j=1}w_{ij} + \sum^N_{j=1}w_{ji}\right)^2 $$
+```{r}
+## Calculate S2
+s2 <- 0
+for (i in 1:n){
+  s2j1 <- 0
+  for(j in 1:n){
+    s2j1 <- s2j1 + W[i,j]
+  }
+  
+  s2j2 <- 0
+  for(j in 1:n){
+    s2j2 <- s2j2 + W[j,i]
+  }
+  
+  s2 <- (s2j1 + s2j2)^2
+}
+```
+
+
+$$ S3 = \frac{ \frac{1}{N} \sum^N_{i=1}(y_i-\bar{y})^4 } { \left( \frac{1}{N}\sum^N_{i=1} ( y_i - \bar{y} )^2 \right)^2 } $$
+
+```{r}
+## Calculate S3
+sum1 <- 0
+for (i in 1:n){
+  sum1 <- sum1 + (yi[i] - ybar)^4
+}
+num3 <- sum1/n
+
+sum2 <- 0
+for (i in 1:n){
+  sum2 <- sum2 + (yi[i] - ybar)^2
+}
+den3 <- (sum2/n)^2
+s3 <- num3/den3
+```
+
+
+$$ S4 = (N^2 - 3*N - 3)S1 - N*S2 + 3\textbf{W}^2 $$
+
+```{r}
+## Calculate S4
+wtot <- 0
+for(i in 1:n){
+  wtot <- wtot + sum(W[,i])
+}
+s4 <- (n^2 - 3*n - 3)*s1 -n*s2 + 3*wtot^2
+```
+
+
+$$ S5 = (N^2 - N)S1 - 2N*S2 + 6\textbf{W}^2 $$
+```{r}
+## Calculate S5
+s5 <- (n^2 - n)*s1 - 2*n*s2 + 6*wtot^2
+```
+
+
+$$ V = \frac{(N*S4-S3*S5)}{(N-1)(N-2)(N-3)\textbf{W}^2}-E[I] $$
+
+```{r}
+## Calculate Value
+eI <- -1/(n-1)
+V <- (n*s4 - s3*s5)/((n-1)*(n-2)*(n-3)*wtot^2) - eI
+V
+```
+
+$$ Z = \frac{I - E[I]}{\sigma}  $$
+```{r}
+# one used 
+zscore <- (MC-eI)/sqrt(V)
+zscore
+```
