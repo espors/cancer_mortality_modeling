@@ -7,6 +7,8 @@ This work was completed in collaboration with Benjamin Pond, Isaac Ofori, and Em
 
 ## Data files 
 
+**Graphs** File containing all pdf figures used in the paper. 
+
 **BEI_Data New.xlsx** The 2020 data for the predictions. 
 
 **BEI_data.csv:** The original data that the models in this study was based on. Includes county names, FIPS number, cancer mortality, cancer incidence, uninsured percentage, educational attainment, exessive drinking percentage, smoking percentage, food index, obesity percentage, and poverty percentage for the 66 counties in South Dakota. 
